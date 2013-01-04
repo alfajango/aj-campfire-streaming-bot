@@ -3,10 +3,14 @@ require "bundler/setup"
 require 'twitter/json_stream'
 require 'twilio-ruby'
 require 'json'
+require 'tinder'
 
 # Campfire config
 token = ENV['CAMPFIRE_TOKEN'] # your API token
-room_id = ENV['CAMPFIRE_ROOM_ID'] # the ID of the room you want to stream
+@room_id = ENV['CAMPFIRE_ROOM_ID'].to_i # the ID of the room you want to stream
+subdomain = ENV['CAMPFIRE_SUBDOMAIN']
+
+@campfire = Tinder::Campfire.new subdomain, :token => token
 
 # Twilio config
 account_sid = ENV['TWILIO_ACCOUNT_SID']
@@ -18,12 +22,6 @@ auth_token = ENV['TWILIO_ACCOUNT_TOKEN']
 # set up a client to talk to the Twilio REST API
 @client = Twilio::REST::Client.new account_sid, auth_token
 
-options = {
-  :path => "/room/#{room_id}/live.json",
-  :host => 'streaming.campfirenow.com',
-    :auth => "#{token}:x"
-}
-
 def send_sms(message)
   @client.account.sms.messages.create(
     :from => @sms_sender,
@@ -31,6 +29,22 @@ def send_sms(message)
     :body => message
   )
 end
+
+def room
+  @room ||= @campfire.find_room_by_id(@room_id)
+end
+
+def users
+  room.users
+end
+
+room.join
+
+options = {
+  :path => "/room/#{@room_id}/live.json",
+  :host => 'streaming.campfirenow.com',
+    :auth => "#{token}:x"
+}
 
 EventMachine::run do
   puts "Running and waiting for events to happen..."
@@ -41,9 +55,8 @@ EventMachine::run do
     puts item
     if item["type"] == "EnterMessage"
       puts "Sending sms"
-      send_sms("#{item["user_id"]} entered campfire room #{item["room_id"]}.")
-    else
-      puts "False alarm"
+      user = users.find{ |u| u["id"] == item["user_id"] }
+      send_sms("#{user["name"]} entered campfire room #{room.name}.")
     end
   end
 
