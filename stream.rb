@@ -38,6 +38,7 @@ def users
   room.users
 end
 
+puts "Joining room"
 room.join
 
 options = {
@@ -45,6 +46,7 @@ options = {
   :host => 'streaming.campfirenow.com',
     :auth => "#{token}:x"
 }
+
 
 EventMachine::run do
   puts "Running and waiting for events to happen..."
@@ -67,5 +69,12 @@ EventMachine::run do
   stream.on_max_reconnects do |timeout, retries|
     puts "Tried #{retries} times to connect."
     exit
+  end
+
+  timer = EventMachine::PeriodicTimer.new(60*30) do
+    puts "Keeping alive - #{Time.now}"
+    # Ping campfire for users to keep connection alive
+    # See: https://groups.google.com/forum/#!topic/37signals-api/IDH-8yzkU-0
+    users
   end
 end
