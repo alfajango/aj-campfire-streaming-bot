@@ -14,7 +14,16 @@ require 'tinder'
 # Set up a client to talk to the Twilio REST API
 @twilio = Twilio::REST::Client.new ENV['TWILIO_ACCOUNT_SID'], ENV['TWILIO_ACCOUNT_TOKEN']
 
+def all_users
+  # Populate all_users hash from config vars
+  @all_users ||= Hash.new.tap do |h|
+    10.times do |i|
+      name = ENV["USER_#{i}_NAME"]
+      h[name] = ENV["USER_#{i}_NUMBER"] if name
+    end
+  end
 end
+puts "ALL USERS: #{all_users}"
 
 def room
   @room ||= @campfire.find_room_by_id(ENV['CAMPFIRE_ROOM_ID'])
