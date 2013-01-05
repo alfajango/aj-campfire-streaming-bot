@@ -34,12 +34,21 @@ def users
   room.users
 end
 
-def send_sms(message)
-  @twilio.account.sms.messages.create(
-    :from => ENV['SMS_SENDER'],
-    :to => ENV['SMS_RECIPIENT'],
-    :body => message
-  )
+def sms_message(user, room)
+  "BOT: #{user["name"]} entered campfire room: \"#{room.name}\". Go say something nice."
+end
+
+def send_sms(user, room)
+  # Send SMS to all users except ones already in Campfire room
+  all_users.reject{ |name, number| users.any?{ |u| u["name"] == name } }.each do |name, number|
+    puts "Sending sms to: #{name}"
+    puts sms_message(user, room)
+    @twilio.account.sms.messages.create(
+      :from => ENV['SMS_SENDER'],
+      :to => number,
+      :body => sms_message(user, room)
+    )
+  end
 end
 
 puts "Joining room"
@@ -59,9 +68,8 @@ EventMachine::run do
     item = JSON.parse(item)
     puts item
     if item["type"] == "EnterMessage"
-      puts "Sending sms"
       user = users.find{ |u| u["id"] == item["user_id"] }
-      send_sms("#{user["name"]} entered campfire room #{room.name}.")
+      send_sms(user, room)
     end
   end
 
