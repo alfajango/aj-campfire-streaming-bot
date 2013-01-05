@@ -1,3 +1,6 @@
+# Show output in foreman logs immediately
+$stdout.sync = true
+
 require "rubygems"
 require "bundler/setup"
 require 'twitter/json_stream'
@@ -5,52 +8,43 @@ require 'twilio-ruby'
 require 'json'
 require 'tinder'
 
-# Campfire config
-token = ENV['CAMPFIRE_TOKEN'] # your API token
-@room_id = ENV['CAMPFIRE_ROOM_ID'].to_i # the ID of the room you want to stream
-subdomain = ENV['CAMPFIRE_SUBDOMAIN']
+# Set up campfire client to communicate with Campfire REST API
+@campfire = Tinder::Campfire.new ENV['CAMPFIRE_SUBDOMAIN'], :token => ENV['CAMPFIRE_TOKEN']
 
-@campfire = Tinder::Campfire.new subdomain, :token => token
+# Set up a client to talk to the Twilio REST API
+@twilio = Twilio::REST::Client.new ENV['TWILIO_ACCOUNT_SID'], ENV['TWILIO_ACCOUNT_TOKEN']
 
-# Twilio config
-account_sid = ENV['TWILIO_ACCOUNT_SID']
-auth_token = ENV['TWILIO_ACCOUNT_TOKEN']
-
-@sms_recipient = ENV['SMS_RECIPIENT'] # e.g. '+16105557069'
-@sms_sender = ENV['SMS_SENDER'] # e.g. '+14159341234'
-
-# set up a client to talk to the Twilio REST API
-@client = Twilio::REST::Client.new account_sid, auth_token
-
-def send_sms(message)
-  @client.account.sms.messages.create(
-    :from => @sms_sender,
-    :to => @sms_recipient,
-    :body => message
-  )
 end
 
 def room
-  @room ||= @campfire.find_room_by_id(@room_id)
+  @room ||= @campfire.find_room_by_id(ENV['CAMPFIRE_ROOM_ID'])
 end
 
 def users
+  # Don't memoize value, each call should ping Campfire REST API
   room.users
+end
+
+def send_sms(message)
+  @twilio.account.sms.messages.create(
+    :from => ENV['SMS_SENDER'],
+    :to => ENV['SMS_RECIPIENT'],
+    :body => message
+  )
 end
 
 puts "Joining room"
 room.join
 
-options = {
-  :path => "/room/#{@room_id}/live.json",
+campfire_stream_options = {
+  :path => "/room/#{ENV['CAMPFIRE_ROOM_ID']}/live.json",
   :host => 'streaming.campfirenow.com',
-    :auth => "#{token}:x"
+    :auth => "#{ENV['CAMPFIRE_TOKEN']}:x"
 }
-
 
 EventMachine::run do
   puts "Running and waiting for events to happen..."
-  stream = Twitter::JSONStream.connect(options)
+  stream = Twitter::JSONStream.connect(campfire_stream_options)
 
   stream.each_item do |item|
     item = JSON.parse(item)
