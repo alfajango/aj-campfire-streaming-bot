@@ -1,1 +1,1 @@
-em: ruby stream.rb
+em: bundle exec ruby stream.rb
