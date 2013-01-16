@@ -8,6 +8,9 @@ require 'twilio-ruby'
 require 'json'
 require 'tinder'
 
+TIME_START = 8 # hour; as in, 8:00, i.e. 8am
+TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
+
 # Set up campfire client to communicate with Campfire REST API
 @campfire = Tinder::Campfire.new ENV['CAMPFIRE_SUBDOMAIN'], :token => ENV['CAMPFIRE_TOKEN']
 
@@ -67,7 +70,7 @@ EventMachine::run do
   stream.each_item do |item|
     item = JSON.parse(item)
     puts item
-    if item["type"] == "EnterMessage"
+    if item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP)
       user = users.find{ |u| u["id"] == item["user_id"] }
       send_sms(user, room)
     end
