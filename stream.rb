@@ -14,6 +14,7 @@ TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
 NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
 ISSUE_TRACKER_URL = ENV['ISSUE_TRACKER_URL'] # e.g. "https://github.com/alfajango/some-repo/issues/%s", where "%s" will be replaced with issue ticket number
+BOT_USER_ID = ENV['BOT_USER_ID'] # Used to prevent bot from triggering itself when speaking in campfire room
 
 if ENV['REDISTOGO_URL']
   uri = URI.parse(ENV["REDISTOGO_URL"])
@@ -95,7 +96,7 @@ def speak(item)
 end
 
 def speak_for_event?(item)
-  item["type"] == "TextMessage" && item["body"].match(/#(\d+)/)
+  item["type"] == "TextMessage" && item["user_id"].to_i != BOT_USER_ID.to_i && item["body"].match(/#(\d+)/)
 end
 
 def store_event(item, options={})
