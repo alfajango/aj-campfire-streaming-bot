@@ -12,6 +12,7 @@ require 'time'
 
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
+NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
 
 if ENV['REDISTOGO_URL']
   uri = URI.parse(ENV["REDISTOGO_URL"])
@@ -41,18 +42,30 @@ def room
   @room ||= @campfire.find_room_by_id(ENV['CAMPFIRE_ROOM_ID'])
 end
 
-def users
+def room_users
   # Don't memoize value, each call should ping Campfire REST API
-  room.users
+  @room_users = room.users
+end
+
+def memoized_room_users
+  @room_users ||= room_users
 end
 
 def sms_message(user, room)
-  "BOT: #{user["name"]} entered campfire room: \"#{room.name}\". Go say something nice."
+  case memoized_room_users.size
+  # Campfire Bot is 1, so 2 means there is 1 actual user in the room
+  when 2
+    "BOT: #{user["name"]} entered campfire room: \"#{room.name}\". It's lonely in there."
+  when 3
+    "BOT: #{user["name"]} entered campfire room: \"#{room.name}\". Now it's a party. I'll be quiet now."
+  else
+    "BOT: #{user["name"]} entered campfire room: \"#{room.name}\"."
+  end
 end
 
 def send_sms(user, room)
   # Send SMS to all users except ones already in Campfire room
-  all_users.reject{ |name, number| users.any?{ |u| u["name"] == name } }.each do |name, number|
+  all_users.reject{ |name, number| memoized_room_users.any?{ |u| u["name"] == name } }.each do |name, number|
     puts "Sending sms to: #{name}"
     puts sms_message(user, room)
     @twilio.account.sms.messages.create(
@@ -64,12 +77,12 @@ def send_sms(user, room)
 end
 
 def send_sms_for_event?(item)
-  item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item)
+  item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item) && memoized_room_users.size <= NOTIFY_USERS_UP_TO
 end
 
 def store_event(item, options={})
   puts "storing event"
-  @redis.set item["room_id"], options.merge({:occurred_at => Time.now, :event_type => item["type"], :user => item["user_id"], :users_in_room => users}).to_json
+  @redis.set item["room_id"], options.merge({:occurred_at => Time.now, :event_type => item["type"], :user => item["user_id"], :users_in_room => memoized_room_users}).to_json
 end
 
 def last_event(room_id)
@@ -98,9 +111,10 @@ EventMachine::run do
   stream.each_item do |item|
     item = JSON.parse(item)
     puts item
+    room_users # update memoized_room_users
     if send_sms_for_event?(item)
+      user = memoized_room_users.find{ |u| u["id"] == item["user_id"] }
       store_event(item)
-      user = users.find{ |u| u["id"] == item["user_id"] }
       send_sms(user, room)
     end
   end
@@ -118,6 +132,6 @@ EventMachine::run do
     puts "Keeping alive - #{Time.now}"
     # Ping campfire for users to keep connection alive
     # See: https://groups.google.com/forum/#!topic/37signals-api/IDH-8yzkU-0
-    users
+    room_users
   end
 end
