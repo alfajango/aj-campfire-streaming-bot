@@ -13,7 +13,12 @@ require 'time'
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
 
-@redis = Redis.new
+if ENV['REDISTOGO_URL']
+  uri = URI.parse(ENV["REDISTOGO_URL"])
+  @redis = Redis.new(:host => uri.host, :port => uri.port, :password => uri.password)
+else
+  @redis = Redis.new
+end
 
 # Set up campfire client to communicate with Campfire REST API
 @campfire = Tinder::Campfire.new ENV['CAMPFIRE_SUBDOMAIN'], :token => ENV['CAMPFIRE_TOKEN']
