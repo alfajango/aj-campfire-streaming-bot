@@ -7,9 +7,13 @@ require 'twitter/json_stream'
 require 'twilio-ruby'
 require 'json'
 require 'tinder'
+require 'redis'
+require 'time'
 
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
+
+@redis = Redis.new
 
 # Set up campfire client to communicate with Campfire REST API
 @campfire = Tinder::Campfire.new ENV['CAMPFIRE_SUBDOMAIN'], :token => ENV['CAMPFIRE_TOKEN']
@@ -54,6 +58,25 @@ def send_sms(user, room)
   end
 end
 
+def send_sms_for_event?(item)
+  item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item)
+end
+
+def store_event(item, options={})
+  puts "storing event"
+  @redis.set item["room_id"], options.merge({:occurred_at => Time.now, :event_type => item["type"], :user => item["user_id"], :users_in_room => users}).to_json
+end
+
+def last_event(room_id)
+  last = @redis.get(room_id)
+  last && JSON.parse(last)
+end
+
+def repeat_event(item)
+  last = last_event(item["room_id"])
+  last && last["event_type"] == item["type"] && last["user"] == item["user_id"] && (Time.now - Time.parse(last["occurred_at"])) < (60 * 60 * 2) # Within 2 hours
+end
+
 puts "Joining room"
 room.join
 
@@ -70,7 +93,8 @@ EventMachine::run do
   stream.each_item do |item|
     item = JSON.parse(item)
     puts item
-    if item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP)
+    if send_sms_for_event?(item)
+      store_event(item)
       user = users.find{ |u| u["id"] == item["user_id"] }
       send_sms(user, room)
     end
