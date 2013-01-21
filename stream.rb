@@ -16,7 +16,7 @@ TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
 NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
 ISSUE_TRACKER_URL = ENV['ISSUE_TRACKER_URL'] # e.g. "https://github.com/alfajango/some-repo/issues/%s", where "%s" will be replaced with issue ticket number
 BOT_USER_ID = ENV['BOT_USER_ID'] # Used to prevent bot from triggering itself when speaking in campfire room
-CAMPFIRE_MESSAGE_PATTERNS = [ /#(\d+)/m, /\Aruby run: (.+)\Z/m ] # Message patterns from campfire for which to take action
+CAMPFIRE_MESSAGE_PATTERNS = [ /#(\d+)/m, /\Aruby run: (.+)\Z/m, /(@bot|Campfire Bot:)\s?(.*)/ ] # Message patterns from campfire for which to take action
 
 if ENV['REDISTOGO_URL']
   uri = URI.parse(ENV["REDISTOGO_URL"])
@@ -112,6 +112,20 @@ def speak_messages(item)
     # Ruby runtime: match e.g. "ruby run: Time.now"
     item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[1]).each do |match|
       array << "#=> " + run_ruby_code!(match[0])
+    end
+
+    # Talking to the bot: match e.g. "@bot speak"
+    commands = item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[2]).to_a[0]
+    if commands && commands.shift
+      if commands.include? "speak"
+        array << "Moo."
+      elsif commands.include? "speak english"
+        array << "Hello."
+      elsif commands.include? "whatcha thinkin about?"
+        array << "Just bot stuff I guess."
+      else
+        array << "What do you want?"
+      end
     end
   end
 end
