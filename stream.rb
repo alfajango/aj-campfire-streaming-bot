@@ -13,6 +13,7 @@ require 'time'
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
 NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
+ISSUE_TRACKER_URL = ENV['ISSUE_TRACKER_URL'] # e.g. "https://github.com/alfajango/some-repo/issues/%s", where "%s" will be replaced with issue ticket number
 
 if ENV['REDISTOGO_URL']
   uri = URI.parse(ENV["REDISTOGO_URL"])
@@ -80,6 +81,23 @@ def send_sms_for_event?(item)
   item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item) && memoized_room_users.size <= NOTIFY_USERS_UP_TO
 end
 
+def speak_messages(item)
+  item["body"].scan(/#(\d+)/).inject(Array.new) do |array, match|
+    array << ISSUE_TRACKER_URL % match[0]
+  end
+end
+
+def speak(item)
+  puts "speaking"
+  speak_messages(item).each do |msg|
+    room.speak msg
+  end
+end
+
+def speak_for_event?(item)
+  item["type"] == "TextMessage" && item["body"].match(/#(\d+)/)
+end
+
 def store_event(item, options={})
   puts "storing event"
   @redis.set item["room_id"], options.merge({:occurred_at => Time.now, :event_type => item["type"], :user => item["user_id"], :users_in_room => memoized_room_users}).to_json
@@ -112,10 +130,15 @@ EventMachine::run do
     item = JSON.parse(item)
     puts item
     room_users # update memoized_room_users
+
     if send_sms_for_event?(item)
       user = memoized_room_users.find{ |u| u["id"] == item["user_id"] }
       store_event(item)
       send_sms(user, room)
+    end
+
+    if speak_for_event?(item)
+      speak(item)
     end
   end
 
