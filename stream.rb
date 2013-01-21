@@ -83,7 +83,7 @@ end
 
 def speak_messages(item)
   item["body"].scan(/#(\d+)/).inject(Array.new) do |array, match|
-    array << ISSUE_TRACKER_URL % match[0]
+    array << "##{match[0]}: " + ISSUE_TRACKER_URL % match[0]
   end
 end
 
