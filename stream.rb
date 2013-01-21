@@ -9,12 +9,14 @@ require 'json'
 require 'tinder'
 require 'redis'
 require 'time'
+require 'timeout'
 
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
 NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
 ISSUE_TRACKER_URL = ENV['ISSUE_TRACKER_URL'] # e.g. "https://github.com/alfajango/some-repo/issues/%s", where "%s" will be replaced with issue ticket number
 BOT_USER_ID = ENV['BOT_USER_ID'] # Used to prevent bot from triggering itself when speaking in campfire room
+CAMPFIRE_MESSAGE_PATTERNS = [ /#(\d+)/m, /\Aruby run: (.+)\Z/m ] # Message patterns from campfire for which to take action
 
 if ENV['REDISTOGO_URL']
   uri = URI.parse(ENV["REDISTOGO_URL"])
@@ -82,9 +84,33 @@ def send_sms_for_event?(item)
   item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item) && memoized_room_users.size <= NOTIFY_USERS_UP_TO
 end
 
+def run_ruby_code!(code_string)
+  puts "evaluating ruby code"
+  begin
+    Timeout.timeout(10) do
+      if %w(run_ruby_code! speak send_sms File).any? { |s| code_string.include?(s) }
+        raise "Disallowed method"
+      end
+      eval(code_string).to_s
+    end
+  rescue Timeout::Error
+    "!!-- Code eval not finished in time, killing it with the vengeance of 1000 Erinyes. --!!}"
+  rescue LoadError => e
+    "!!-- Code eval error: \"#{e}\" --!!"
+  rescue => e
+    "!!-- Code eval error: \"#{e}\" --!!"
+  end
+end
+
 def speak_messages(item)
-  item["body"].scan(/#(\d+)/).inject(Array.new) do |array, match|
+  # Issue tracker auto-link: match e.g. "#795"
+  item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[0]).inject(Array.new) do |array, match|
     array << "##{match[0]}: " + ISSUE_TRACKER_URL % match[0]
+  end
+
+  # Ruby runtime: match e.g. "ruby run: Time.now"
+  item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[1]).inject(Array.new) do |array, match|
+    array << "#=> " + run_ruby_code!(match[0])
   end
 end
 
@@ -95,8 +121,12 @@ def speak(item)
   end
 end
 
+def item_matches_pattern?(item)
+  CAMPFIRE_MESSAGE_PATTERNS.any? { |p| item["body"].match(p) }
+end
+
 def speak_for_event?(item)
-  item["type"] == "TextMessage" && item["user_id"].to_i != BOT_USER_ID.to_i && item["body"].match(/#(\d+)/)
+  item["type"] == "TextMessage" && item["user_id"].to_i != BOT_USER_ID.to_i && item_matches_pattern?(item)
 end
 
 def store_event(item, options={})
