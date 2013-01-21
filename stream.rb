@@ -115,9 +115,9 @@ def speak_messages(item)
 end
 
 def speak(item)
-  puts "speaking"
   speak_messages(item).each do |msg|
-    room.speak msg
+    puts "speaking: #{msg}"
+    room.speak(msg)
   end
 end
 
