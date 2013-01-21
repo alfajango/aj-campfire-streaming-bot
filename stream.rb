@@ -103,14 +103,16 @@ def run_ruby_code!(code_string)
 end
 
 def speak_messages(item)
-  # Issue tracker auto-link: match e.g. "#795"
-  item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[0]).inject(Array.new) do |array, match|
-    array << "##{match[0]}: " + ISSUE_TRACKER_URL % match[0]
-  end
+  Array.new.tap do |array|
+    # Issue tracker auto-link: match e.g. "#795"
+    item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[0]).each do |match|
+      array << "##{match[0]}: " + ISSUE_TRACKER_URL % match[0]
+    end
 
-  # Ruby runtime: match e.g. "ruby run: Time.now"
-  item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[1]).inject(Array.new) do |array, match|
-    array << "#=> " + run_ruby_code!(match[0])
+    # Ruby runtime: match e.g. "ruby run: Time.now"
+    item["body"].scan(CAMPFIRE_MESSAGE_PATTERNS[1]).each do |match|
+      array << "#=> " + run_ruby_code!(match[0])
+    end
   end
 end
 
