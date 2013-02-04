@@ -13,6 +13,8 @@ require 'timeout'
 
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
+DAY_START = 1 # wday; 0=Sunday through 6=Saturday
+DAY_STOP = 5 # wday; 0=Sunday through 6=Saturday
 NOTIFY_USERS_UP_TO = 3 # Campfire Bot is 1, so 3 means notify until after 2 users in room
 ISSUE_TRACKER_URL = ENV['ISSUE_TRACKER_URL'] # e.g. "https://github.com/alfajango/some-repo/issues/%s", where "%s" will be replaced with issue ticket number
 BOT_USER_ID = ENV['BOT_USER_ID'] # Used to prevent bot from triggering itself when speaking in campfire room
@@ -81,7 +83,7 @@ def send_sms(user, room)
 end
 
 def send_sms_for_event?(item)
-  item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && !repeat_event(item) && memoized_room_users.size <= NOTIFY_USERS_UP_TO
+  item["type"] == "EnterMessage" && Time.now.hour.between?(TIME_START, TIME_STOP) && Time.now.wday.between?(DAY_START, DAY_STOP) && !repeat_event(item) && memoized_room_users.size <= NOTIFY_USERS_UP_TO
 end
 
 def run_ruby_code!(code_string)
