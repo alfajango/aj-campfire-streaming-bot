@@ -10,6 +10,7 @@ require 'tinder'
 require 'redis'
 require 'time'
 require 'timeout'
+require 'cleverbot'
 
 TIME_START = 8 # hour; as in, 8:00, i.e. 8am
 TIME_STOP = 21 # hour; as in, 21:00, i.e. 9pm
@@ -32,6 +33,9 @@ end
 
 # Set up a client to talk to the Twilio REST API
 @twilio = Twilio::REST::Client.new ENV['TWILIO_ACCOUNT_SID'], ENV['TWILIO_ACCOUNT_TOKEN']
+
+# Set up a cleverbot client to give our bot a little pseudo AI
+@cleverbot = Cleverbot::Client.new
 
 def all_users
   # Populate all_users hash from config vars
@@ -126,7 +130,7 @@ def speak_messages(item)
       elsif commands.include? "whatcha thinkin about?"
         array << "Just bot stuff I guess."
       else
-        array << "What do you want?"
+        array << @cleverbot.write(commands)
       end
     end
   end

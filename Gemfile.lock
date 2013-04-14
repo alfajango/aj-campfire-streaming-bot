@@ -2,6 +2,8 @@ GEM
   remote: https://rubygems.org/
   specs:
     builder (3.1.4)
+    cleverbot (0.1.1)
+      httparty (~> 0.8.0)
     eventmachine (1.0.0)
     faraday (0.8.4)
       multipart-post (~> 1.1)
@@ -11,11 +13,15 @@ GEM
       thor (>= 0.13.6)
     hashie (1.2.0)
     http_parser.rb (0.5.3)
+    httparty (0.8.3)
+      multi_json (~> 1.0)
+      multi_xml
     json (1.7.6)
     jwt (0.1.5)
       multi_json (>= 1.0)
     mime-types (1.19)
     multi_json (1.5.0)
+    multi_xml (0.5.3)
     multipart-post (1.1.5)
     redis (3.0.2)
     simple_oauth (0.1.9)
@@ -42,6 +48,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  cleverbot
   foreman
   redis
   tinder
